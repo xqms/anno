@@ -208,8 +208,6 @@ constexpr auto members(const Struct& s = {})
             >...>();
     }(std::make_integer_sequence<int, reflect::size<Struct>()>());
 
-    constexpr auto NUM_ARGUMENTS = memberIndices.size();
-
     // For each argument, where do we need to start looking for annotations?
     auto annotationStartIndices = [&]<auto ... Ns>(detail::IndexSeq<Ns...>) {
         return detail::IndexSeq<
