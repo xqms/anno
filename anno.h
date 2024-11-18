@@ -182,12 +182,6 @@ namespace detail {
     else
       return false;
   }
-
-  template<class... T>
-  constexpr auto tupleToMemberList(std::tuple<T...>)
-  {
-    return MemberList<T...>();
-  }
 } // namespace detail
 
 template<typename Struct>
