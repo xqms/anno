@@ -83,6 +83,20 @@ struct AnnotationList
       return A0;
     }(AnnotationList<Anns...>{});
   }
+
+  template<class Predicate>
+  static constexpr bool any(Predicate p) {
+    static_assert(size != 0, "Called any() on an empty AnnotationList");
+
+    return (false || ... || p(Anns));
+  }
+
+  template<class Predicate>
+  static constexpr bool all(Predicate p) {
+    static_assert(size != 0, "Called all() on an empty AnnotationList");
+
+    return (true && ... && p(Anns));
+  }
 };
 
 template<class Struct, std::size_t IndexInStruct, typename AnnotationList>
@@ -107,6 +121,7 @@ struct Member
   }
 
   constexpr auto& get(Struct& s) { return reflect::get<IndexInStruct>(s); }
+  constexpr auto& get(const Struct& s) { return reflect::get<IndexInStruct>(s); }
 };
 
 template<typename... Members>
