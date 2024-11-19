@@ -85,14 +85,16 @@ struct AnnotationList
   }
 
   template<class Predicate>
-  static constexpr bool any(Predicate p) {
+  static constexpr bool any(Predicate p)
+  {
     static_assert(size != 0, "Called any() on an empty AnnotationList");
 
     return (false || ... || p(Anns));
   }
 
   template<class Predicate>
-  static constexpr bool all(Predicate p) {
+  static constexpr bool all(Predicate p)
+  {
     static_assert(size != 0, "Called all() on an empty AnnotationList");
 
     return (true && ... && p(Anns));
@@ -121,7 +123,10 @@ struct Member
   }
 
   constexpr auto& get(Struct& s) { return reflect::get<IndexInStruct>(s); }
-  constexpr auto& get(const Struct& s) { return reflect::get<IndexInStruct>(s); }
+  constexpr auto& get(const Struct& s)
+  {
+    return reflect::get<IndexInStruct>(s);
+  }
 };
 
 template<typename... Members>
@@ -163,8 +168,17 @@ struct MemberList
       };                                                                       \
     }                                                                          \
   }
-
 #define ANNO_EXTERN(...) ANNO_EXTERN_CUSTOM(, __COUNTER__, __VA_ARGS__)
+
+#define ANNO_NESTED_CUSTOM(init_code, counter, member, ...)                    \
+  ::anno::detail::NestedAnnotation<member, decltype([]() {                     \
+                                     init_code;                                \
+                                     return ::anno::AnnotationList<            \
+                                       __VA_ARGS__>();                         \
+                                   }())>                                       \
+    ANNO_CONCAT(zzz_anno, counter) [[no_unique_address]];
+#define ANNO_NESTED(member, ...)                                               \
+  ANNO_NESTED_CUSTOM(, __COUNTER__, member, __VA_ARGS__)
 
 namespace detail {
   template<typename T>
@@ -220,12 +234,6 @@ namespace detail {
   using MemberType =
     std::remove_cvref_t<decltype(reflect::get<Index>(Struct{}))>;
 
-  template<class Struct, class MemberType, std::size_t Offset>
-  struct ExternalAnnotation
-  {
-    using Value = AnnotationList<>;
-  };
-
   template<class T>
   struct member_type_helper;
 
@@ -274,6 +282,26 @@ namespace detail {
     else
       return static_cast<std::size_t>(-1);
   }
+
+  template<class Struct, class MemberType, std::size_t Index>
+  struct ExternalAnnotation
+  {
+    using Value = AnnotationList<>;
+  };
+
+  template<auto MemberPointer, class Annotations>
+  struct NestedAnnotation
+  {
+    using Value = Annotations;
+    static constexpr auto Pointer = MemberPointer;
+
+    template<typename T, std::size_t index>
+    static constexpr bool matches()
+    {
+      return index == index_from_member<MemberPointer>() &&
+             std::is_same_v<T, type_from_member_t<MemberPointer>>;
+    }
+  };
 } // namespace detail
 
 template<typename Struct>
@@ -304,6 +332,24 @@ members(const Struct& s = {})
                      std::integral_constant<int, annotationStart>,
                      std::integral_constant<int, memberIndex>) {
     if constexpr (memberIndex >= 0) {
+      using MemberType = detail::MemberType<Struct, memberIndex>;
+
+      auto parseNested = []() {
+        // Parse nested annotations if present
+        if constexpr (requires { typename Struct::anno; }) {
+          return []<auto... I>(std::index_sequence<I...>) {
+            return detail::concat<
+              AnnotationList,
+              std::conditional_t<
+                detail::MemberType<typename Struct::anno, I>::
+                  template matches<MemberType, memberIndex>(),
+                typename detail::MemberType<typename Struct::anno, I>::Value,
+                AnnotationList<>>...>();
+          }(std::make_index_sequence<reflect::size<typename Struct::anno>()>());
+        } else
+          return AnnotationList<>();
+      };
+
       auto annotations =
         [&]<auto... Ns>(std::index_sequence<Ns...>) {
           using Annotations = detail::concatenate_t<
@@ -314,6 +360,7 @@ members(const Struct& s = {})
               std::remove_cvref_t<decltype(reflect::get<annotationStart + Ns>(
                 s))>,
               AnnotationList<>>...,
+            decltype(parseNested()),
             typename detail::ExternalAnnotation<
               Struct,
               detail::MemberType<Struct, memberIndex>,
@@ -404,6 +451,11 @@ namespace tests {
     ANNO(anns::Help{ "verbose" }, anns::Short{ 'v' })
     ANNO(anns::Short{ 'd' })
     bool verbose = false;
+
+    struct anno
+    {
+      ANNO_NESTED(&Test::help, anns::Short{ 'x' })
+    };
   };
 }
 }
@@ -421,6 +473,7 @@ namespace tests {
                         1,
                         AnnotationList<anns::Help{ "my help string" },
                                        anns::Short{ 'h' },
+                                       anns::Short{ 'x' },
                                        anns::Short{ 'f' }>>,
                  Member<Test,
                         4,
@@ -441,7 +494,7 @@ namespace tests {
     });
 
     expect(memberCounter == 2);
-    expect(annotationCounter == 6);
+    expect(annotationCounter == 7);
 
     return true;
   }());
