@@ -400,11 +400,9 @@ template<auto F>
 constexpr auto
 AnnotationList<Anns...>::filter()
 {
-  using Matches = detail::concatenate_t<
+  return detail::concat<
     AnnotationList,
-    std::conditional_t<F(Anns), AnnotationList<Anns>, AnnotationList<>>...>;
-
-  return Matches{};
+    std::conditional_t<F(Anns), AnnotationList<Anns>, AnnotationList<>>...>();
 }
 
 namespace tests {
