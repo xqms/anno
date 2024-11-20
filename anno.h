@@ -198,7 +198,7 @@ namespace detail {
   }
 
   template<int... V>
-  using IndexSeq = std::integer_sequence<int, V...>;
+  using IndexSeq = std::index_sequence<V...>;
 
   template<auto... VA, auto... VB>
   constexpr auto operator+(const IndexSeq<VA...>&,
@@ -312,26 +312,34 @@ members(const Struct& s = {})
   auto memberIndices = [&]<auto... Ns>(detail::IndexSeq<Ns...>) {
     return detail::concat<
       detail::IndexSeq,
-      std::conditional_t<detail::isAnnotationList<std::remove_cvref_t<
-                           decltype(reflect::get<Ns>(s))>>(),
-                         detail::IndexSeq<>,
-                         detail::IndexSeq<Ns>>...>();
-  }(std::make_integer_sequence<int, reflect::size<Struct>()>());
+      std::conditional_t<
+        detail::isAnnotationList<detail::MemberType<Struct, Ns>>(),
+        detail::IndexSeq<>,
+        detail::IndexSeq<Ns>>...>();
+  }(std::make_index_sequence<reflect::size<Struct>()>());
 
-  // For each argument, where do we need to start looking for annotations?
-  auto annotationStartIndices = [&]<auto... Ns>(detail::IndexSeq<Ns...>) {
-    return detail::IndexSeq<0, Ns + 1 ...>();
-  }(memberIndices);
+  // The following only makes sense if we actually have members
+  if constexpr (memberIndices.size() > 0) {
+    // For each member, where do we need to start looking for annotations?
+    auto annotationStartIndicesPadded =
+      [&]<auto... Ns>(detail::IndexSeq<Ns...>) {
+        return detail::IndexSeq<0, Ns + 1 ...>();
+      }(memberIndices);
 
-  // Make member index list with same size
-  auto paddedMembers = [&]<auto... Ns>(detail::IndexSeq<Ns...>) {
-    return detail::IndexSeq<Ns..., -1>();
-  }(memberIndices);
+    // Remove the last item  - doesn't make sense to look after it for
+    // annotations and we need a list of the same size as memberIndices
+    auto annotationStartIndices = []<auto... Ns>(detail::IndexSeq<Ns...>) {
+      constexpr auto asTuple = std::make_tuple(Ns...);
 
-  auto getMember = []<int annotationStart, int memberIndex>(
-                     std::integral_constant<int, annotationStart>,
-                     std::integral_constant<int, memberIndex>) {
-    if constexpr (memberIndex >= 0) {
+      return [&]<auto... I>(std::index_sequence<I...>) {
+        return detail::IndexSeq<std::get<I>(asTuple)...>{};
+      }(std::make_index_sequence<sizeof...(Ns) - 1>());
+    }(annotationStartIndicesPadded);
+
+    // Called to generate the MemberList for each member
+    auto getMember = []<std::size_t annotationStart, std::size_t memberIndex>(
+                       std::integral_constant<std::size_t, annotationStart>,
+                       std::integral_constant<std::size_t, memberIndex>) {
       using MemberType = detail::MemberType<Struct, memberIndex>;
 
       auto parseNested = []() {
@@ -350,43 +358,38 @@ members(const Struct& s = {})
           return AnnotationList<>();
       };
 
-      auto annotations =
-        [&]<auto... Ns>(std::index_sequence<Ns...>) {
-          using Annotations = detail::concatenate_t<
-            AnnotationList,
-            std::conditional_t<
-              detail::isAnnotationList<std::remove_cvref_t<
-                decltype(reflect::get<annotationStart + Ns>(s))>>(),
-              std::remove_cvref_t<decltype(reflect::get<annotationStart + Ns>(
-                s))>,
-              AnnotationList<>>...,
-            decltype(parseNested()),
-            typename detail::ExternalAnnotation<
-              Struct,
-              detail::MemberType<Struct, memberIndex>,
-              memberIndex>::Value>;
-          return Annotations();
-        }(std::make_index_sequence < (memberIndex >= annotationStart)
-            ? (memberIndex - annotationStart)
-            : 0 > ());
+      auto annotations = [&]<auto... Ns>(std::index_sequence<Ns...>) {
+        using Annotations = detail::concatenate_t<
+          AnnotationList,
+          std::conditional_t<
+            detail::isAnnotationList<
+              detail::MemberType<Struct, annotationStart + Ns>>(),
+            detail::MemberType<Struct, annotationStart + Ns>,
+            AnnotationList<>>...,
+          decltype(parseNested()),
+          typename detail::ExternalAnnotation<
+            Struct,
+            detail::MemberType<Struct, memberIndex>,
+            memberIndex>::Value>;
+        return Annotations();
+      }(std::make_index_sequence<memberIndex - annotationStart>());
 
       return Member<Struct,
                     static_cast<std::size_t>(memberIndex),
                     decltype(annotations)>();
-    } else
-      return std::false_type{};
-  };
+    };
 
-  return [&]<auto... startIndex, auto... memberIndex>(
-           detail::IndexSeq<startIndex...>, detail::IndexSeq<memberIndex...>) {
-    return detail::concat<
-      MemberList,
-      std::conditional_t<memberIndex >= 0,
-                         MemberList<decltype(getMember(
-                           std::integral_constant<int, startIndex>(),
-                           std::integral_constant<int, memberIndex>()))>,
-                         MemberList<>>...>();
-  }(annotationStartIndices, paddedMembers);
+    return
+      [&]<auto... startIndex, auto... memberIndex>(
+        detail::IndexSeq<startIndex...>, detail::IndexSeq<memberIndex...>) {
+        return detail::concat<
+          MemberList,
+          MemberList<decltype(getMember(
+            std::integral_constant<std::size_t, startIndex>(),
+            std::integral_constant<std::size_t, memberIndex>()))>...>();
+      }(annotationStartIndices, memberIndices);
+  } else
+    return MemberList<>{};
 }
 
 template<class Struct>
