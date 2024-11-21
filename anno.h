@@ -501,8 +501,9 @@ namespace tests {
   }());
 
   static_assert([]() {
-    auto helpAnn = anno::members_t<Test>::Member<0>::Annotations::filter(
-                     anno::type<anns::Help>())
+    auto helpAnn = anno::members<Test>()
+                     .member<0>()
+                     .annotations(anno::type<anns::Help>())
                      .get();
 
     expect(std::string_view{ helpAnn.string } == "my help string");
