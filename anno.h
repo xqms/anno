@@ -38,7 +38,7 @@ type()
 }
 
 template<auto... Anns>
-struct AnnotationList
+struct annotation_list
 {
   static constexpr size_t size = sizeof...(Anns);
 
@@ -65,29 +65,29 @@ struct AnnotationList
 
   static consteval auto front()
   {
-    static_assert(size != 0, "Called front() on an empty AnnotationList");
+    static_assert(size != 0, "Called front() on an empty annotation_list");
 
-    return []<auto A0, auto... Rest>(const AnnotationList<A0, Rest...>&) {
+    return []<auto A0, auto... Rest>(const annotation_list<A0, Rest...>&) {
       return A0;
-    }(AnnotationList<Anns...>{});
+    }(annotation_list<Anns...>{});
   }
 
   static consteval auto get()
   {
-    static_assert(size != 0, "Called get() on an empty AnnotationList");
+    static_assert(size != 0, "Called get() on an empty annotation_list");
     static_assert(
       size <= 1,
-      "Called get() on an AnnotationList with more than one annotation");
+      "Called get() on an annotation_list with more than one annotation");
 
-    return []<auto A0>(const AnnotationList<A0>&) {
+    return []<auto A0>(const annotation_list<A0>&) {
       return A0;
-    }(AnnotationList<Anns...>{});
+    }(annotation_list<Anns...>{});
   }
 
   template<class Predicate>
   static constexpr bool any(Predicate p)
   {
-    static_assert(size != 0, "Called any() on an empty AnnotationList");
+    static_assert(size != 0, "Called any() on an empty annotation_list");
 
     return (false || ... || p(Anns));
   }
@@ -95,16 +95,16 @@ struct AnnotationList
   template<class Predicate>
   static constexpr bool all(Predicate p)
   {
-    static_assert(size != 0, "Called all() on an empty AnnotationList");
+    static_assert(size != 0, "Called all() on an empty annotation_list");
 
     return (true && ... && p(Anns));
   }
 };
 
-template<class Struct, std::size_t IndexInStruct, typename AnnotationList>
-struct Member
+template<class Struct, std::size_t IndexInStruct, typename annotation_list>
+struct member
 {
-  using Annotations = AnnotationList;
+  using Annotations = annotation_list;
   static constexpr std::size_t Index = IndexInStruct;
 
   constexpr Annotations annotations() const { return Annotations{}; }
@@ -130,7 +130,7 @@ struct Member
 };
 
 template<typename... Members>
-struct MemberList
+struct member_list
 {
   template<std::size_t N>
   static consteval auto member()
@@ -149,7 +149,7 @@ struct MemberList
 #define ANNO_CUSTOM(init_code, line, ...)                                      \
   decltype([]() {                                                              \
     init_code;                                                                 \
-    return anno::AnnotationList<__VA_ARGS__>();                                \
+    return anno::annotation_list<__VA_ARGS__>();                               \
   }()) ANNO_CONCAT(zzz_anno, line) [[no_unique_address]];
 #define ANNO(...) ANNO_CUSTOM(, __COUNTER__, __VA_ARGS__)
 
@@ -157,13 +157,13 @@ struct MemberList
   namespace anno {                                                             \
     namespace detail {                                                         \
       template<>                                                               \
-      struct ExternalAnnotation<anno::detail::struct_from_member_t<member>,    \
-                                anno::detail::type_from_member_t<member>,      \
-                                anno::detail::index_from_member<member>()>     \
+      struct external_annotation<anno::detail::struct_from_member_t<member>,   \
+                                 anno::detail::type_from_member_t<member>,     \
+                                 anno::detail::index_from_member<member>()>    \
       {                                                                        \
         using Value = decltype([]() {                                          \
           init_code;                                                           \
-          return anno::AnnotationList<__VA_ARGS__>();                          \
+          return anno::annotation_list<__VA_ARGS__>();                         \
         }());                                                                  \
       };                                                                       \
     }                                                                          \
@@ -171,11 +171,11 @@ struct MemberList
 #define ANNO_EXTERN(...) ANNO_EXTERN_CUSTOM(, __COUNTER__, __VA_ARGS__)
 
 #define ANNO_NESTED_CUSTOM(init_code, counter, member, ...)                    \
-  ::anno::detail::NestedAnnotation<member, decltype([]() {                     \
-                                     init_code;                                \
-                                     return ::anno::AnnotationList<            \
-                                       __VA_ARGS__>();                         \
-                                   }())>                                       \
+  ::anno::detail::nested_annotation<member, decltype([]() {                    \
+                                      init_code;                               \
+                                      return ::anno::annotation_list<          \
+                                        __VA_ARGS__>();                        \
+                                    }())>                                      \
     ANNO_CONCAT(zzz_anno, counter) [[no_unique_address]];
 #define ANNO_NESTED(member, ...)                                               \
   ANNO_NESTED_CUSTOM(, __COUNTER__, member, __VA_ARGS__)
@@ -220,10 +220,10 @@ namespace detail {
   }
 
   template<class T>
-  constexpr bool isAnnotationList(const T& = {})
+  constexpr bool is_annotation_list(const T& = {})
   {
     if constexpr (requires {
-                    []<auto... A>(const AnnotationList<A...>&) {}(T{});
+                    []<auto... A>(const annotation_list<A...>&) {}(T{});
                   })
       return true;
     else
@@ -284,13 +284,13 @@ namespace detail {
   }
 
   template<class Struct, class MemberType, std::size_t Index>
-  struct ExternalAnnotation
+  struct external_annotation
   {
-    using Value = AnnotationList<>;
+    using Value = annotation_list<>;
   };
 
   template<auto MemberPointer, class Annotations>
-  struct NestedAnnotation
+  struct nested_annotation
   {
     using Value = Annotations;
     static constexpr auto Pointer = MemberPointer;
@@ -313,7 +313,7 @@ members(const Struct& s = {})
     return detail::concat<
       detail::IndexSeq,
       std::conditional_t<
-        detail::isAnnotationList<detail::MemberType<Struct, Ns>>(),
+        detail::is_annotation_list<detail::MemberType<Struct, Ns>>(),
         detail::IndexSeq<>,
         detail::IndexSeq<Ns>>...>();
   }(std::make_index_sequence<reflect::size<Struct>()>());
@@ -347,34 +347,34 @@ members(const Struct& s = {})
         if constexpr (requires { typename Struct::anno; }) {
           return []<auto... I>(std::index_sequence<I...>) {
             return detail::concat<
-              AnnotationList,
+              annotation_list,
               std::conditional_t<
                 detail::MemberType<typename Struct::anno, I>::
                   template matches<MemberType, memberIndex>(),
                 typename detail::MemberType<typename Struct::anno, I>::Value,
-                AnnotationList<>>...>();
+                annotation_list<>>...>();
           }(std::make_index_sequence<reflect::size<typename Struct::anno>()>());
         } else
-          return AnnotationList<>();
+          return annotation_list<>();
       };
 
       auto annotations = [&]<auto... Ns>(std::index_sequence<Ns...>) {
         using Annotations = detail::concatenate_t<
-          AnnotationList,
+          annotation_list,
           std::conditional_t<
-            detail::isAnnotationList<
+            detail::is_annotation_list<
               detail::MemberType<Struct, annotationStart + Ns>>(),
             detail::MemberType<Struct, annotationStart + Ns>,
-            AnnotationList<>>...,
+            annotation_list<>>...,
           decltype(parseNested()),
-          typename detail::ExternalAnnotation<
+          typename detail::external_annotation<
             Struct,
             detail::MemberType<Struct, memberIndex>,
             memberIndex>::Value>;
         return Annotations();
       }(std::make_index_sequence<memberIndex - annotationStart>());
 
-      return Member<Struct,
+      return member<Struct,
                     static_cast<std::size_t>(memberIndex),
                     decltype(annotations)>();
     };
@@ -383,13 +383,13 @@ members(const Struct& s = {})
       [&]<auto... startIndex, auto... memberIndex>(
         detail::IndexSeq<startIndex...>, detail::IndexSeq<memberIndex...>) {
         return detail::concat<
-          MemberList,
-          MemberList<decltype(getMember(
+          member_list,
+          member_list<decltype(getMember(
             std::integral_constant<std::size_t, startIndex>(),
             std::integral_constant<std::size_t, memberIndex>()))>...>();
       }(annotationStartIndices, memberIndices);
   } else
-    return MemberList<>{};
+    return member_list<>{};
 }
 
 template<class Struct>
@@ -398,11 +398,11 @@ using members_t = decltype(members<Struct>());
 template<auto... Anns>
 template<auto F>
 constexpr auto
-AnnotationList<Anns...>::filter()
+annotation_list<Anns...>::filter()
 {
   return detail::concat<
-    AnnotationList,
-    std::conditional_t<F(Anns), AnnotationList<Anns>, AnnotationList<>>...>();
+    annotation_list,
+    std::conditional_t<F(Anns), annotation_list<Anns>, annotation_list<>>...>();
 }
 
 namespace tests {
@@ -470,17 +470,17 @@ namespace tests {
   static_assert(
     VerboseCheck<std::is_same<
       anno::members_t<Test>,
-      MemberList<Member<Test,
-                        1,
-                        AnnotationList<anns::Help{ "my help string" },
-                                       anns::Short{ 'h' },
-                                       anns::Short{ 'x' },
-                                       anns::Short{ 'f' }>>,
-                 Member<Test,
-                        4,
-                        AnnotationList<anns::Help{ "verbose" },
-                                       anns::Short{ 'v' },
-                                       anns::Short{ 'd' }>>>>>::value,
+      member_list<member<Test,
+                         1,
+                         annotation_list<anns::Help{ "my help string" },
+                                         anns::Short{ 'h' },
+                                         anns::Short{ 'x' },
+                                         anns::Short{ 'f' }>>,
+                  member<Test,
+                         4,
+                         annotation_list<anns::Help{ "verbose" },
+                                         anns::Short{ 'v' },
+                                         anns::Short{ 'd' }>>>>>::value,
     "Unexpected result from get()");
 
   static_assert([]() {
