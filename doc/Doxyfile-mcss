@@ -1,0 +1,16 @@
+@INCLUDE = Doxyfile
+
+## Patches for the m.css-generated docs. Just need to generate XML, that's it.
+
+OUTPUT_DIRECTORY       = ../build/doc-mcss/
+PROJECT_BRIEF          = C++ docs
+GENERATE_HTML          = NO
+GENERATE_XML           = YES
+XML_PROGRAMLISTING     = NO
+XML_NS_MEMB_FILE_SCOPE = YES
+
+## Added m.css-specific @m_* commands and all the GL/AL/extension links are
+## marked with m-doc-external CSS class to avoid ugly underline.
+## Important: keep this in sync with Doxyfile and Doxyfile-public!
+
+# kate: hl Doxyfile
