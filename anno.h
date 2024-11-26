@@ -5,6 +5,7 @@
 
 #include <reflect>
 
+//! The anno namespace
 namespace anno {
 
 namespace detail {
@@ -21,8 +22,16 @@ namespace detail {
   template<class T>
   struct type
   {};
+
+  template<class Callable>
+  concept PredicateReturnsBool =
+    std::is_same_v<std::invoke_result_t<Callable, bool>, bool>;
 } // namespace detail
 
+/**
+ * @brief Type helper
+ *
+ * Generates a filter criterion for @ref annotation_list::filter */
 template<class T>
 constexpr detail::type<T>
 type()
@@ -30,6 +39,10 @@ type()
   return detail::type<T>{};
 }
 
+/**
+ * @brief Type helper
+ *
+ * Generates a filter criterion for @ref annotation_list::filter */
 template<template<auto...> class T>
 constexpr detail::template_type_nontype_args<T>
 type()
@@ -37,18 +50,47 @@ type()
   return detail::template_type_nontype_args<T>{};
 }
 
+/**
+ * @brief Annotation list
+ *
+ **/
 template<auto... Anns>
 struct annotation_list
 {
+  //! Number of annotations
   static constexpr size_t size = sizeof...(Anns);
 
+  //! True iff not empty
   constexpr operator bool() { return size != 0; }
 
+  /**
+   * @brief Execute @a f for each annotation
+   *
+   * @snippet anno_snippets.cpp annotation_list::for_each
+   **/
   static constexpr void for_each(auto&& f) { (f(Anns), ...); }
 
+  /**
+   * @brief Filter using a predicate
+   *
+   * The resulting annotation_list contains each annotation @a A if and only if
+   * @a Predicate(A) is true.
+   *
+   * @snippet anno_snippets.cpp annotation_list::filter(Predicate)
+   * See the overloads below for shortcuts for filtering on type.
+   **/
   template<auto Predicate>
+    requires detail::PredicateReturnsBool<decltype(Predicate)>
   static constexpr auto filter();
 
+  /**
+   * @brief Filter based on annotation type
+   *
+   * This overload is used to filter annotation classes templated on non-type
+   * arguments. Use @ref anno::type to generate the argument of this function.
+   *
+   * @snippet anno_snippets.cpp annotation_list::filter(NonType)
+   **/
   template<template<auto...> class T>
   static constexpr auto filter(const detail::template_type_nontype_args<T>&)
   {
@@ -57,6 +99,14 @@ struct annotation_list
     }>();
   }
 
+  /**
+   * @brief Filter based on annotation type
+   *
+   * This overload is used to filter annotations of a specific non-templated type.
+   * Use @ref anno::type to generate the argument of this function.
+   *
+   * @snippet anno_snippets.cpp annotation_list::filter(Type)
+   **/
   template<class T>
   static constexpr auto filter(const detail::type<T>&)
   {
@@ -396,13 +446,15 @@ template<class Struct>
 using members_t = decltype(members<Struct>());
 
 template<auto... Anns>
-template<auto F>
+template<auto Predicate>
+  requires detail::PredicateReturnsBool<decltype(Predicate)>
 constexpr auto
 annotation_list<Anns...>::filter()
 {
-  return detail::concat<
-    annotation_list,
-    std::conditional_t<F(Anns), annotation_list<Anns>, annotation_list<>>...>();
+  return detail::concat<annotation_list,
+                        std::conditional_t<Predicate(Anns),
+                                           annotation_list<Anns>,
+                                           annotation_list<>>...>();
 }
 
 namespace tests {

@@ -22,4 +22,5 @@ target_link_libraries(anno INTERFACE
 add_library(anno::anno ALIAS anno)
 
 
+add_subdirectory(doc)
 add_subdirectory(examples)
