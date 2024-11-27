@@ -9,4 +9,4 @@ if [[ ! -e "$DIR/m.css" ]]; then
 fi
 
 mkdir -p "$DIR/../build/doc"
-"$DIR/m.css/documentation/doxygen.py" "$DIR/Doxyfile-mcss"
+"$DIR/m.css/documentation/doxygen.py" "$DIR/mcss_conf.py"
