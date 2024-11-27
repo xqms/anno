@@ -53,16 +53,25 @@ type()
 /**
  * @brief Annotation list
  *
+ * This class is used to hold lists of annotations, which are represented as non-type template argument pack `Anns`.
+ *
+ * Example usage:
+ * @snippet anno_snippets.cpp annotation_list
  **/
 template<auto... Anns>
 struct annotation_list
 {
+  //! @name Basic Queries
+  //@{
   //! Number of annotations
   static constexpr size_t size = sizeof...(Anns);
 
   //! True iff not empty
   constexpr operator bool() { return size != 0; }
+  //@}
 
+  //! @name Iterating over Annotations
+  //@{
   /**
    * @brief Execute @a f for each annotation
    *
@@ -70,6 +79,35 @@ struct annotation_list
    **/
   static constexpr void for_each(auto&& f) { (f(Anns), ...); }
 
+  /**
+   * @brief Disjunction
+   *
+   * Returns `(false || ... || p(Anns))`.
+   **/
+  template<class Predicate>
+  static constexpr bool any(Predicate p)
+  {
+    static_assert(size != 0, "Called any() on an empty annotation_list");
+
+    return (false || ... || p(Anns));
+  }
+
+  /**
+   * @brief Conjunction
+   *
+   * Returns `(true && ... && p(Anns))`.
+   **/
+  template<class Predicate>
+  static constexpr bool all(Predicate p)
+  {
+    static_assert(size != 0, "Called all() on an empty annotation_list");
+
+    return (true && ... && p(Anns));
+  }
+  //@}
+
+  //! @name Filtering Annotations
+  //@{
   /**
    * @brief Filter using a predicate
    *
@@ -102,8 +140,8 @@ struct annotation_list
   /**
    * @brief Filter based on annotation type
    *
-   * This overload is used to filter annotations of a specific non-templated type.
-   * Use @ref anno::type to generate the argument of this function.
+   * This overload is used to filter annotations of a specific non-templated
+   * type. Use @ref anno::type to generate the argument of this function.
    *
    * @snippet anno_snippets.cpp annotation_list::filter(Type)
    **/
@@ -113,6 +151,15 @@ struct annotation_list
     return filter<[]<class A>(const A& a) { return std::is_same_v<A, T>; }>();
   }
 
+  //@}
+
+  //! @name Direct Annotation Access
+  //@{
+  /**
+   * @brief The first annotation
+   *
+   * This throws a `static_assert` if the annotation list is empty.
+   **/
   static consteval auto front()
   {
     static_assert(size != 0, "Called front() on an empty annotation_list");
@@ -122,6 +169,12 @@ struct annotation_list
     }(annotation_list<Anns...>{});
   }
 
+  /**
+   * @brief Single annotation access
+   *
+   * This throws a `static_assert` if the list does not contain exactly one
+   * annotation.
+   **/
   static consteval auto get()
   {
     static_assert(size != 0, "Called get() on an empty annotation_list");
@@ -133,22 +186,7 @@ struct annotation_list
       return A0;
     }(annotation_list<Anns...>{});
   }
-
-  template<class Predicate>
-  static constexpr bool any(Predicate p)
-  {
-    static_assert(size != 0, "Called any() on an empty annotation_list");
-
-    return (false || ... || p(Anns));
-  }
-
-  template<class Predicate>
-  static constexpr bool all(Predicate p)
-  {
-    static_assert(size != 0, "Called all() on an empty annotation_list");
-
-    return (true && ... && p(Anns));
-  }
+  //@}
 };
 
 template<class Struct, std::size_t IndexInStruct, typename annotation_list>

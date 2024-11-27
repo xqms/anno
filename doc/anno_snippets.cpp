@@ -28,6 +28,30 @@ struct Struct
 int
 main(int argc, char** argv)
 {
+  //! [annotation_list]
+  struct MyStruct
+  {
+    ANNO(MyAnnotation{}, AnnotationWithNonTypeArgs<2>{})
+    int number;
+
+    bool value;
+  };
+
+  auto number_annotations = anno::members<MyStruct>().member<0>().annotations();
+
+  // The result is an annotation_list containing the annotations
+  static_assert(
+    std::is_same_v<
+      decltype(number_annotations),
+      anno::annotation_list<MyAnnotation{}, AnnotationWithNonTypeArgs<2>{}>>);
+
+  // Do something for all annotations of type MyAnnotation
+  number_annotations.filter(anno::type<MyAnnotation>())
+    .for_each([](auto annotation) {
+      // ...
+    });
+  //! [annotation_list]
+
   //! [annotation_list::for_each]
   anno::members<Struct>().for_each([](auto member) {
     member.annotations().for_each([&](auto annotation) {
@@ -59,8 +83,7 @@ main(int argc, char** argv)
 
   //! [annotation_list::filter(Type)]
   anno::members<Struct>().for_each([](auto member) {
-    auto res =
-      member.annotations().filter(anno::type<MyAnnotation>());
+    auto res = member.annotations().filter(anno::type<MyAnnotation>());
     std::cout << "Member " << member.name() << " has " << res.size
               << " annotations of type MyAnnotation.\n";
   });
