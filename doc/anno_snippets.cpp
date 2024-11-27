@@ -4,6 +4,7 @@
 
 #include <anno.h>
 
+//! [ANNO]
 struct MyAnnotation
 {
   bool value = false;
@@ -19,11 +20,31 @@ struct AnnotationWithTypeArgs
 
 struct Struct
 {
+  // A simple, single annotation attached to `number`.
   ANNO(MyAnnotation{})
   int number;
 
+  // You can include more annotations in a single ANNO() call or even use
+  // separate ones - they are all concatenated.
+  ANNO(AnnotationWithNonTypeArgs<2>{}, AnnotationWithTypeArgs<bool>{})
+  ANNO(MyAnnotation{})
   bool value;
 };
+//! [ANNO]
+
+//! [ANNO_EXTERN]
+struct ExternalAnnotation
+{};
+
+struct ExternallyAnnotated
+{
+  int number;
+  bool value;
+};
+
+// Attach an ExternalAnnotation{} to ExternallyAnnotated::number
+ANNO_EXTERN(&ExternallyAnnotated::number, ExternalAnnotation{})
+//! [ANNO_EXTERN]
 
 int
 main(int argc, char** argv)
@@ -98,7 +119,8 @@ main(int argc, char** argv)
   //! [member::annotations(query)]
 
   //! [member::get]
-  struct Print{};
+  struct Print
+  {};
 
   struct Person
   {
@@ -111,11 +133,32 @@ main(int argc, char** argv)
     std::string password;
   };
 
-  Person p{.firstName="Joe", .lastName="Davis", .password="secret"};
+  Person p{ .firstName = "Joe", .lastName = "Davis", .password = "secret" };
 
-  anno::members<Person>().for_each([&](auto member){
-    if constexpr(member.annotations(anno::type<Print>()))
+  anno::members<Person>().for_each([&](auto member) {
+    if constexpr (member.annotations(anno::type<Print>()))
       std::cout << member.name() << ": " << member.get(p) << "\n";
   });
   //! [member::get]
+
+  {
+    //! [ANNO_NESTED]
+    struct MyAnnotation
+    {
+      bool value = false;
+    };
+
+    struct Struct
+    {
+      int number;
+      bool value;
+
+      struct anno
+      {
+        // Attach a MyAnnotation{} to Struct::number
+        ANNO_NESTED(&Struct::number, MyAnnotation{})
+      };
+    };
+    //! [ANNO_NESTED]
+  }
 }

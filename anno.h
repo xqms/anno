@@ -5,6 +5,11 @@
 
 #include <reflect>
 
+/**
+ * @file
+ * @brief Anno library
+ **/
+
 //! The anno namespace
 namespace anno {
 
@@ -53,10 +58,11 @@ type()
 /**
  * @brief Annotation list
  *
- * This class is used to hold lists of annotations, which are represented as non-type template argument pack `Anns`.
+ * This class is used to hold lists of annotations, which are represented as
+ *non-type template argument pack `Anns`.
  *
  * Example usage:
- * @snippet anno_snippets.cpp annotation_list
+ * @snippet{trimleft} anno_snippets.cpp annotation_list
  **/
 template<auto... Anns>
 struct annotation_list
@@ -75,7 +81,7 @@ struct annotation_list
   /**
    * @brief Execute @a f for each annotation
    *
-   * @snippet anno_snippets.cpp annotation_list::for_each
+   * @snippet{trimleft} anno_snippets.cpp annotation_list::for_each
    **/
   static constexpr void for_each(auto&& f) { (f(Anns), ...); }
 
@@ -114,7 +120,7 @@ struct annotation_list
    * The resulting annotation_list contains each annotation @a A if and only if
    * @a Predicate(A) is true.
    *
-   * @snippet anno_snippets.cpp annotation_list::filter(Predicate)
+   * @snippet{trimleft} anno_snippets.cpp annotation_list::filter(Predicate)
    * See the overloads below for shortcuts for filtering on type.
    **/
   template<auto Predicate>
@@ -127,7 +133,7 @@ struct annotation_list
    * This overload is used to filter annotation classes templated on non-type
    * arguments. Use @ref anno::type to generate the argument of this function.
    *
-   * @snippet anno_snippets.cpp annotation_list::filter(NonType)
+   * @snippet{trimleft} anno_snippets.cpp annotation_list::filter(NonType)
    **/
   template<template<auto...> class T>
   static constexpr auto filter(const detail::template_type_nontype_args<T>&)
@@ -143,7 +149,7 @@ struct annotation_list
    * This overload is used to filter annotations of a specific non-templated
    * type. Use @ref anno::type to generate the argument of this function.
    *
-   * @snippet anno_snippets.cpp annotation_list::filter(Type)
+   * @snippet{trimleft} anno_snippets.cpp annotation_list::filter(Type)
    **/
   template<class T>
   static constexpr auto filter(const detail::type<T>&)
@@ -193,7 +199,7 @@ struct annotation_list
  * @brief Represents a member in a struct
  *
  * Example usage:
- * @snippet anno_snippets.cpp member::get
+ * @snippet{trimleft} anno_snippets.cpp member::get
  **/
 template<class Struct, std::size_t IndexInStruct, class AnnotationList>
 struct member
@@ -209,7 +215,7 @@ struct member
    *
    * This is a shorthand for `annotations().filter(query)`.
    *
-   * @snippet anno_snippets.cpp member::annotations(query)
+   * @snippet{trimleft} anno_snippets.cpp member::annotations(query)
    *
    * @sa @ref anno::type(), @ref anno::annotation_list::filter()
    **/
@@ -225,7 +231,8 @@ struct member
    * @m_class{m-block m-warning}
    *
    * @par Warning:
-   *   This is the original index in the struct and as thus is affected by the "phantom" members added by the @ref ANNO() macro.
+   *   This is the original index in the struct and as thus is affected by the
+   *"phantom" members added by the @ref ANNO() macro.
    **/
   consteval std::size_t index() const { return Index; }
 
@@ -242,7 +249,7 @@ struct member
    *
    * Returns a reference to the member in instance @a s.
    *
-   * @snippet anno_snippets.cpp member::get
+   * @snippet{trimleft} anno_snippets.cpp member::get
    **/
   constexpr auto& get(Struct& s) { return reflect::get<IndexInStruct>(s); }
 
@@ -253,9 +260,20 @@ struct member
   }
 };
 
+/**
+ * @brief A list of members
+ *
+ * The members are encoded as @ref member types in the template argument pack
+ * `Members`.
+ *
+ * @snippet{trimleft} anno_snippets.cpp member::get
+ **/
 template<typename... Members>
 struct member_list
 {
+  /**
+   * Access a specific member
+   **/
   template<std::size_t N>
   static consteval auto member()
   {
@@ -265,6 +283,11 @@ struct member_list
   template<std::size_t N>
   using Member = decltype(member<N>());
 
+  /**
+   * Iterate over members
+   *
+   * See above for an example.
+   **/
   static constexpr void for_each(auto&& f) { (f(Members{}), ...); }
 };
 
@@ -275,6 +298,25 @@ struct member_list
     init_code;                                                                 \
     return anno::annotation_list<__VA_ARGS__>();                               \
   }()) ANNO_CONCAT(zzz_anno, line) [[no_unique_address]];
+
+/**
+ * @brief Inline annotation
+ *
+ * The `ANNO()` macro adds an inline annotation to the following struct member.
+ * The arguments to this macro are expected to be annotation *instances*.
+ *
+ * Example:
+ * @snippet{trimleft} anno_snippets.cpp ANNO
+ *
+ * @m_class{m-block m-warning}
+ *
+ * @par Warning
+ *   `ANNO()` defines additional "phantom" members to store the annotations.
+ *   While these members do not take up memory space due to
+ *   `[[no_unique_address]]`, they interfere with structured binding and
+ *   aggregate initialization. In the above example, `Struct{2, false}` would
+ *   fail to compile and `Struct{.number=2, .value=true}` would have to be used.
+ **/
 #define ANNO(...) ANNO_CUSTOM(, __COUNTER__, __VA_ARGS__)
 
 #define ANNO_EXTERN_CUSTOM(init_code, line, member, ...)                       \
@@ -292,6 +334,20 @@ struct member_list
       };                                                                       \
     }                                                                          \
   }
+
+/**
+ * @brief External annotation
+ *
+ * Annotations can be made external to the class using `ANNO_EXTERN()`.
+ * The @a member argument should be a member pointer.
+ * The additional arguments to this macro are expected to be annotation
+ * *instances*.
+ *
+ * Note that `ANNO_EXTERN()` has to be used in global namespace scope.
+ *
+ * Example usage:
+ * @snippet{trimleft} anno_snippets.cpp ANNO_EXTERN
+ **/
 #define ANNO_EXTERN(...) ANNO_EXTERN_CUSTOM(, __COUNTER__, __VA_ARGS__)
 
 #define ANNO_NESTED_CUSTOM(init_code, counter, member, ...)                    \
@@ -301,6 +357,18 @@ struct member_list
                                         __VA_ARGS__>();                        \
                                     }())>                                      \
     ANNO_CONCAT(zzz_anno, counter) [[no_unique_address]];
+
+/**
+ * @brief Nested annotation
+ *
+ * This macro is used to define nested annotations.
+ * The @a member argument should be a member pointer.
+ * The additional arguments to this macro are expected to be annotation
+ **instances*.
+ *
+ * Example usage:
+ * @snippet{trimleft} anno_snippets.cpp ANNO_NESTED
+ **/
 #define ANNO_NESTED(member, ...)                                               \
   ANNO_NESTED_CUSTOM(, __COUNTER__, member, __VA_ARGS__)
 
@@ -379,7 +447,7 @@ namespace detail {
   {
     using Struct = struct_from_member_t<M>;
     using Type = type_from_member_t<M>;
-    constexpr Struct instance;
+    constexpr Struct instance{};
 
     auto ptr = &(instance.*M);
 
@@ -428,6 +496,14 @@ namespace detail {
   };
 } // namespace detail
 
+/**
+ * @brief Analyze Struct and get members
+ *
+ * This method is the main entrance into anno's API. It returns a @ref member_list struct describing the members and their annotations.
+ *
+ * Example usage:
+ * @snippet{trimleft} anno_snippets.cpp member::get
+ **/
 template<typename Struct>
 constexpr auto
 members(const Struct& s = {})
@@ -516,9 +592,6 @@ members(const Struct& s = {})
     return member_list<>{};
 }
 
-template<class Struct>
-using members_t = decltype(members<Struct>());
-
 template<auto... Anns>
 template<auto Predicate>
   requires detail::PredicateReturnsBool<decltype(Predicate)>
@@ -595,7 +668,7 @@ namespace tests {
                 "Annotations should not increase struct size");
   static_assert(
     VerboseCheck<std::is_same<
-      anno::members_t<Test>,
+      decltype(anno::members<Test>()),
       member_list<member<Test,
                          1,
                          annotation_list<anns::Help{ "my help string" },
