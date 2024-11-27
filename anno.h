@@ -189,28 +189,64 @@ struct annotation_list
   //@}
 };
 
-template<class Struct, std::size_t IndexInStruct, typename annotation_list>
+/**
+ * @brief Represents a member in a struct
+ *
+ * Example usage:
+ * @snippet anno_snippets.cpp member::get
+ **/
+template<class Struct, std::size_t IndexInStruct, class AnnotationList>
 struct member
 {
-  using Annotations = annotation_list;
+  using Annotations = AnnotationList;
   static constexpr std::size_t Index = IndexInStruct;
 
+  //! The list of annotations
   constexpr Annotations annotations() const { return Annotations{}; }
 
-  template<class T>
-  constexpr auto annotations(const T& t) const
+  /**
+   * @brief Filter annotations
+   *
+   * This is a shorthand for `annotations().filter(query)`.
+   *
+   * @snippet anno_snippets.cpp member::annotations(query)
+   *
+   * @sa @ref anno::type(), @ref anno::annotation_list::filter()
+   **/
+  template<class Query>
+  constexpr auto annotations(const Query& query) const
   {
-    return Annotations::template filter(t);
+    return Annotations::template filter(query);
   }
 
+  /**
+   * @brief Index of this member in the struct
+   *
+   * @m_class{m-block m-warning}
+   *
+   * @par Warning:
+   *   This is the original index in the struct and as thus is affected by the "phantom" members added by the @ref ANNO() macro.
+   **/
   consteval std::size_t index() const { return Index; }
 
-  constexpr auto name() const
+  /**
+   * @brief Name of this member
+   **/
+  constexpr std::string_view name() const
   {
     return reflect::member_name<IndexInStruct>(Struct{});
   }
 
+  /**
+   * @brief Access member
+   *
+   * Returns a reference to the member in instance @a s.
+   *
+   * @snippet anno_snippets.cpp member::get
+   **/
   constexpr auto& get(Struct& s) { return reflect::get<IndexInStruct>(s); }
+
+  //! @overload
   constexpr auto& get(const Struct& s)
   {
     return reflect::get<IndexInStruct>(s);

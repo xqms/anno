@@ -74,18 +74,48 @@ main(int argc, char** argv)
 
   //! [annotation_list::filter(NonType)]
   anno::members<Struct>().for_each([](auto member) {
-    auto res =
+    auto list =
       member.annotations().filter(anno::type<AnnotationWithNonTypeArgs>());
-    std::cout << "Member " << member.name() << " has " << res.size
+    std::cout << "Member " << member.name() << " has " << list.size
               << " annotations of type AnnotationWithNonTypeArgs.\n";
   });
   //! [annotation_list::filter(NonType)]
 
   //! [annotation_list::filter(Type)]
   anno::members<Struct>().for_each([](auto member) {
-    auto res = member.annotations().filter(anno::type<MyAnnotation>());
-    std::cout << "Member " << member.name() << " has " << res.size
+    auto list = member.annotations().filter(anno::type<MyAnnotation>());
+    std::cout << "Member " << member.name() << " has " << list.size
               << " annotations of type MyAnnotation.\n";
   });
   //! [annotation_list::filter(Type)]
+
+  //! [member::annotations(query)]
+  anno::members<Struct>().for_each([](auto member) {
+    auto list = member.annotations(anno::type<MyAnnotation>());
+    std::cout << "Member " << member.name() << " has " << list.size
+              << " annotations of type MyAnnotation.\n";
+  });
+  //! [member::annotations(query)]
+
+  //! [member::get]
+  struct Print{};
+
+  struct Person
+  {
+    ANNO(Print{})
+    std::string firstName;
+
+    ANNO(Print{})
+    std::string lastName;
+
+    std::string password;
+  };
+
+  Person p{.firstName="Joe", .lastName="Davis", .password="secret"};
+
+  anno::members<Person>().for_each([&](auto member){
+    if constexpr(member.annotations(anno::type<Print>()))
+      std::cout << member.name() << ": " << member.get(p) << "\n";
+  });
+  //! [member::get]
 }
