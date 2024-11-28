@@ -7,10 +7,10 @@
 
 /**
  * @file
- * @brief Anno library
+ * @brief The member annotations library
  **/
 
-//! The anno namespace
+//! The member annotations library
 namespace anno {
 
 namespace detail {
