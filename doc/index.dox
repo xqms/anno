@@ -1,0 +1,9 @@
+/**
+@mainpage anno
+
+With anno, you can declaratively attach annotations to members of structs.
+
+For example:
+
+@snippet anno_snippets.cpp member::get
+**/
